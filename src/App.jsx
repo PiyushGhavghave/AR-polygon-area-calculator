@@ -52,6 +52,7 @@ function App() {
         optionalFeatures: ['dom-overlay'],
         domOverlay: { root: document.querySelector('.app-container') }
       });
+      arButton.style.backgroundColor = 'rgba(0, 94, 255, 1)';
       document.body.appendChild(arButton);
 
       reticle = new THREE.Mesh(
