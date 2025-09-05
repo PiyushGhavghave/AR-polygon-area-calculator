@@ -106,18 +106,26 @@ function App() {
 
     function placePoint() {
       if (reticle.visible) {
-        const newPointPos = new THREE.Vector3();
-        reticle.getWorldPosition(newPointPos);
-        points.push(newPointPos);
-
+        // Freeze the current reticle matrix at the moment of placement
+        const frozenMatrix = new THREE.Matrix4().copy(reticle.matrix);
+      
+        const pos = new THREE.Vector3();
+        const quat = new THREE.Quaternion();
+        const scale = new THREE.Vector3();
+        frozenMatrix.decompose(pos, quat, scale);
+      
+        // Store a cloned position (important: clone to avoid future changes)
+        points.push(pos.clone());
+      
+        // Add a fixed marker at that position
         const marker = new THREE.Mesh(
-          new THREE.SphereGeometry(0.025),
+          new THREE.SphereGeometry(0.025, 16, 16),
           new THREE.MeshBasicMaterial({ color: 0xff00ff })
         );
         marker.name = "measurement_marker";
-        marker.position.copy(newPointPos);
+        marker.position.copy(pos);
         scene.add(marker);
-        
+      
         updateMeasurementVisuals();
       }
     }
