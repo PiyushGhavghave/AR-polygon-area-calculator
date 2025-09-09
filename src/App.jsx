@@ -21,7 +21,6 @@ function App() {
     const resetButton = document.getElementById('reset-button');
     const pointsCountEl = document.getElementById('points-count');
     const areaDisplayEl = document.getElementById('area-display');
-    const volumeDisplayEl = document.getElementById('volume-display');
 
     // We use the X and Z coordinates, assuming the points are on a flat plane.
     function calculatePolygonArea(polygonPoints) {
@@ -78,6 +77,7 @@ function App() {
       if (frame) {
         const referenceSpace = renderer.xr.getReferenceSpace();
         const session = renderer.xr.getSession();
+        
         if (!hitTestSourceRequested) {
           session.requestReferenceSpace('viewer').then((refSpace) => {
             session.requestHitTestSource({ space: refSpace }).then((source) => {
@@ -90,6 +90,7 @@ function App() {
           });
           hitTestSourceRequested = true;
         }
+        
         if (hitTestSource) {
           const hitTestResults = frame.getHitTestResults(hitTestSource);
           if (hitTestResults.length) {
@@ -106,16 +107,25 @@ function App() {
 
     function placePoint() {
       if (reticle.visible) {
+        // KEY FIX 1: Extract position from the hit test matrix instead of using getWorldPosition
+        const hitMatrix = new THREE.Matrix4();
+        hitMatrix.copy(reticle.matrix);
+        
         const newPointPos = new THREE.Vector3();
-        reticle.getWorldPosition(newPointPos);
-        points.push(newPointPos);
+        newPointPos.setFromMatrixPosition(hitMatrix);
+        
+        points.push(newPointPos.clone()); // Clone to ensure immutability
 
         const marker = new THREE.Mesh(
           new THREE.SphereGeometry(0.025),
           new THREE.MeshBasicMaterial({ color: 0xff00ff })
         );
         marker.name = "measurement_marker";
-        marker.position.copy(newPointPos);
+        
+        // KEY FIX 2: Set the marker's matrix directly from the hit test result
+        marker.matrix.copy(hitMatrix);
+        marker.matrixAutoUpdate = false; // Important: disable auto-update to prevent movement
+        
         scene.add(marker);
         
         updateMeasurementVisuals();
@@ -146,10 +156,6 @@ function App() {
       if (areaDisplayEl) {
         areaDisplayEl.textContent = '';
       }
-      // This element is no longer in the JSX, but the check is good practice
-      if (volumeDisplayEl) {
-        volumeDisplayEl.textContent = ''; 
-      }
 
       if (lineMesh) {
         scene.remove(lineMesh);
@@ -163,12 +169,19 @@ function App() {
       // Draw a line connecting all points, including one to close the shape
       const pointsToDraw = [...points, points[0]];
       const lineGeometry = new THREE.BufferGeometry().setFromPoints(pointsToDraw);
-      lineMesh = new THREE.Line(lineGeometry, new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 3 }));
+      lineMesh = new THREE.Line(lineGeometry, new THREE.LineBasicMaterial({ 
+        color: 0xffffff, 
+        linewidth: 3 
+      }));
+      
+      // KEY FIX 3: Ensure the line mesh also doesn't auto-update if needed
+      // (Usually lines work fine with auto-update, but you can disable if issues persist)
+      lineMesh.matrixAutoUpdate = false;
+      
       scene.add(lineMesh);
       
       if (points.length >= 3) {
         const area = calculatePolygonArea(points);
-        // ADDED: Check if the element exists before updating
         if (areaDisplayEl) {
           areaDisplayEl.textContent = `Polygon Area: ${area.toFixed(3)} m²`;
         }
